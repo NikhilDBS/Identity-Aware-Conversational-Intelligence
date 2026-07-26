@@ -5,22 +5,26 @@ Chain-of-thought LLM call that decides:
   - needs_retrieval: should past memory be fetched to understand this message?
   - retrieval_intents: what to look for (natural language), if retrieval is needed
 
-Uses structured output (Pydantic) — never parsed free-text.
+Uses LiteLLM's acompletion with response_format for structured JSON output.
+Never parsed free-text.
 """
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime
 from typing import Any
 
-from langchain_community.chat_models import ChatLiteLLM
-from langchain_core.messages import SystemMessage, HumanMessage
+import litellm
 
 from app.core.config import get_settings
 from app.graph.state import PipelineState
 from app.models.schemas import ContextAssessment
 
 logger = logging.getLogger(__name__)
+
+# Silence verbose litellm logs
+litellm.suppress_debug_info = True
 
 
 SYSTEM_PROMPT = """You are the context-assessment module for a conversational AI with persistent memory.
@@ -35,8 +39,20 @@ Think step by step before deciding. Consider:
 - Does a genuinely helpful response depend on knowing the user's identity, past events, or emotional state?
 - Would a reasonable response be the same regardless of who the user is? (→ no retrieval needed)
 
-Return ONLY valid JSON matching the ContextAssessment schema. No extra text.
+Return ONLY valid JSON matching this exact schema:
+{
+  "needs_retrieval": <bool>,
+  "retrieval_intents": [
+    {
+      "description": "<what to look for>",
+      "memory_types": ["identity" | "episodic" | "emotional"]
+    }
+  ],
+  "reasoning": "<brief chain-of-thought>"
+}
+If needs_retrieval is false, retrieval_intents should be an empty array [].
 """
+
 
 def make_user_prompt(message: str, recent_turns: list[dict]) -> str:
     history_text = ""
@@ -52,24 +68,29 @@ def make_user_prompt(message: str, recent_turns: list[dict]) -> str:
 New user message:
 \"{message}\"
 
-Assess whether past memory retrieval is needed and output the ContextAssessment JSON."""
+Assess whether past memory retrieval is needed and output the JSON."""
 
 
 async def assess_context(state: PipelineState) -> dict[str, Any]:
     settings = get_settings()
     ts = datetime.utcnow().isoformat()
 
-    llm = ChatLiteLLM(model=settings.litellm_model)
-    structured_llm = llm.with_structured_output(ContextAssessment)
-
     recent_turns = state.get("retrieved_context", [])  # may be empty on first call
     messages = [
-        SystemMessage(content=SYSTEM_PROMPT),
-        HumanMessage(content=make_user_prompt(state["user_message"], recent_turns)),
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user",   "content": make_user_prompt(state["user_message"], recent_turns)},
     ]
 
     try:
-        assessment: ContextAssessment = await structured_llm.ainvoke(messages)
+        response = await litellm.acompletion(
+            model=settings.litellm_model,
+            messages=messages,
+            response_format={"type": "json_object"},
+            temperature=0.1,
+        )
+        raw_json = response.choices[0].message.content
+        data = json.loads(raw_json)
+        assessment = ContextAssessment.model_validate(data)
         logger.info("assess_context: needs_retrieval=%s", assessment.needs_retrieval)
     except Exception as exc:
         logger.error("assess_context failed: %s", exc)

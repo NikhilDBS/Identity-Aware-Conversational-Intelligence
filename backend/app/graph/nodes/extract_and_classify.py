@@ -6,21 +6,24 @@ user's message and classifies each as identity / episodic / emotional with
 full structured metadata.
 
 Empty list is the expected output for small talk and clarifying questions.
+Uses LiteLLM's acompletion with json_object response_format.
 """
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime
 from typing import Any
 
-from langchain_community.chat_models import ChatLiteLLM
-from langchain_core.messages import SystemMessage, HumanMessage
+import litellm
 
 from app.core.config import get_settings
 from app.graph.state import PipelineState
 from app.models.schemas import MemoryExtractionResult
 
 logger = logging.getLogger(__name__)
+
+litellm.suppress_debug_info = True
 
 
 SYSTEM_PROMPT = """You are the memory extraction module for a conversational AI.
@@ -42,7 +45,34 @@ Rules:
 - For identity items: confidence 0.0–1.0.
 - If nothing is worth storing, return an empty memories list — this is FINE and expected.
 
-Return ONLY valid JSON matching MemoryExtractionResult schema. No extra text.
+Return ONLY valid JSON matching this exact schema:
+{
+  "memories": [
+    {
+      "memory_type": "identity" | "episodic" | "emotional",
+      "identity": {   // only when memory_type == "identity"
+        "content": "...",
+        "category": "trait" | "preference" | "value" | "role" | "relationship" | "goal",
+        "confidence": 0.0-1.0
+      },
+      "episodic": {   // only when memory_type == "episodic"
+        "content": "...",
+        "event_type": "...",
+        "occurred_at": "...",
+        "location": null,
+        "participants": []
+      },
+      "emotional": {  // only when memory_type == "emotional"
+        "content": "...",
+        "emotion_label": "...",
+        "intensity": 0.0-1.0,
+        "valence": "positive" | "negative" | "neutral" | "mixed",
+        "trigger": "..."
+      }
+    }
+  ],
+  "reasoning": "..."
+}
 """
 
 
@@ -61,9 +91,6 @@ async def extract_and_classify(state: PipelineState) -> dict[str, Any]:
     settings = get_settings()
     ts = datetime.utcnow().isoformat()
 
-    llm = ChatLiteLLM(model=settings.litellm_model)
-    structured_llm = llm.with_structured_output(MemoryExtractionResult)
-
     context_text = _format_context(state.get("retrieved_context", []))
 
     user_prompt = f"""Retrieved context:
@@ -72,13 +99,21 @@ async def extract_and_classify(state: PipelineState) -> dict[str, Any]:
 User message:
 \"{state['user_message']}\"
 
-Extract all memory-worthy items and return MemoryExtractionResult JSON."""
+Extract all memory-worthy items and return the JSON."""
 
     try:
-        result: MemoryExtractionResult = await structured_llm.ainvoke([
-            SystemMessage(content=SYSTEM_PROMPT),
-            HumanMessage(content=user_prompt),
-        ])
+        response = await litellm.acompletion(
+            model=settings.litellm_model,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user",   "content": user_prompt},
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.1,
+        )
+        raw_json = response.choices[0].message.content
+        data = json.loads(raw_json)
+        result = MemoryExtractionResult.model_validate(data)
         logger.info("extract_and_classify: %d memories found", len(result.memories))
     except Exception as exc:
         logger.error("extract_and_classify failed: %s", exc)

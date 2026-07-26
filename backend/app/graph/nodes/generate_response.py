@@ -7,6 +7,7 @@ Composes the final natural-language reply using:
   - Newly extracted/written memories (so the response can naturally acknowledge new info)
 
 This is the only node that produces free-form text (not forced JSON output).
+Uses LiteLLM's acompletion directly.
 """
 from __future__ import annotations
 
@@ -14,13 +15,14 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from langchain_community.chat_models import ChatLiteLLM
-from langchain_core.messages import SystemMessage, HumanMessage
+import litellm
 
 from app.core.config import get_settings
 from app.graph.state import PipelineState
 
 logger = logging.getLogger(__name__)
+
+litellm.suppress_debug_info = True
 
 
 SYSTEM_PROMPT = """You are a warm, emotionally intelligent conversational assistant with genuine long-term memory.
@@ -71,8 +73,6 @@ async def generate_response(state: PipelineState) -> dict[str, Any]:
     settings = get_settings()
     ts = datetime.utcnow().isoformat()
 
-    llm = ChatLiteLLM(model=settings.litellm_model)
-
     memory_context = _format_memories_for_prompt(
         state.get("retrieved_context", []),
         state.get("extracted_memories", []),
@@ -87,11 +87,15 @@ User's message:
 Respond naturally and helpfully."""
 
     try:
-        response = await llm.ainvoke([
-            SystemMessage(content=SYSTEM_PROMPT),
-            HumanMessage(content=user_prompt),
-        ])
-        final_response = response.content
+        response = await litellm.acompletion(
+            model=settings.litellm_model,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user",   "content": user_prompt},
+            ],
+            temperature=0.7,
+        )
+        final_response = response.choices[0].message.content
         logger.info("generate_response: %d chars", len(final_response))
     except Exception as exc:
         logger.error("generate_response failed: %s", exc)
