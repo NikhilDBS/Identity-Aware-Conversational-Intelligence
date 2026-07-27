@@ -63,6 +63,24 @@ ORDER BY em.intensity DESC
 LIMIT $limit
 """
 
+READ_ALL_EPISODIC_MEMORIES = """
+MATCH (u:User {id: $user_id})-[:EXPERIENCED]->(em:EpisodicMemory)
+RETURN em.id AS id, em.content AS content, em.event_type AS event_type,
+       em.occurred_at AS occurred_at, em.location AS location,
+       em.participants AS participants
+ORDER BY em.occurred_at DESC
+LIMIT $limit
+"""
+
+READ_ALL_EMOTIONAL_MEMORIES = """
+MATCH (u:User {id: $user_id})-[:FELT]->(em:EmotionalMemory)
+RETURN em.id AS id, em.content AS content, em.emotion_label AS emotion_label,
+       em.intensity AS intensity, em.valence AS valence,
+       em.trigger AS trigger, em.occurred_at AS occurred_at
+ORDER BY em.intensity DESC
+LIMIT $limit
+"""
+
 READ_ALL_USER_MEMORIES = """
 MATCH (u:User {id: $user_id})
 OPTIONAL MATCH (u)-[:HAS_IDENTITY]->(im:IdentityMemory)
@@ -174,19 +192,25 @@ def build_read_params(
 ) -> tuple[str, dict[str, Any]]:
     """
     Return (cypher_query, params) for the given memory_type and keyword.
-    Falls back to ALL_IDENTITY when no keyword makes sense.
+    Falls back to ALL_* variant when keyword is empty or a generic "all" query.
     """
     kw = keyword.strip() or ""
     base: dict[str, Any] = {"user_id": user_id, "limit": limit}
+    is_broad = not kw or kw.lower().split()[0] in ("all", "every", "any")
 
     if memory_type == "identity":
+        if is_broad:
+            return READ_ALL_IDENTITY_MEMORIES, base
         return READ_IDENTITY_MEMORIES, {**base, "keyword": kw, "category": kw}
     elif memory_type == "episodic":
+        if is_broad:
+            return READ_ALL_EPISODIC_MEMORIES, base
         return READ_EPISODIC_MEMORIES, {**base, "keyword": kw}
     elif memory_type == "emotional":
+        if is_broad:
+            return READ_ALL_EMOTIONAL_MEMORIES, base
         return READ_EMOTIONAL_MEMORIES, {**base, "keyword": kw}
     else:
-        # Default: recent user messages
         return READ_RECENT_CONVERSATIONS, {**base, "limit": 5}
 
 

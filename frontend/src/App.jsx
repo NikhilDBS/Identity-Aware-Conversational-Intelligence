@@ -128,7 +128,7 @@ export default function App() {
     } catch (err) {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `⚠️ Error: ${err.message}. Is the backend running at localhost:8000?`,
+        content: `⚠️ Error: ${err.message}. Is the backend running?`,
         timestamp: new Date().toISOString(),
         trace: [],
       }])
