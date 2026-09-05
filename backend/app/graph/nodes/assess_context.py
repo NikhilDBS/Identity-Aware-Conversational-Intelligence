@@ -46,6 +46,9 @@ IMPORTANT:
 - If the user asks what you know/remember about them (e.g. "what do you know about me?",
   "do you remember...?", "what did I tell you?"), you MUST set needs_retrieval to true
   with a broad intent covering all memory types.
+- If the user asks to recall a previously shared fact (e.g. "where are my car keys?",
+  "remind me...", "what did I say about...?"), you MUST set needs_retrieval to true
+  with a specific intent naming the thing asked about and memory_types ["episodic"].
 
 Return ONLY valid JSON matching this exact schema:
 {

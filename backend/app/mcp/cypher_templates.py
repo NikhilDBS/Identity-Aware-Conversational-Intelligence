@@ -25,11 +25,14 @@ LIMIT $limit
 
 READ_IDENTITY_MEMORIES = """
 MATCH (im:IdentityMemory)
-WHERE toLower(im.content) CONTAINS toLower($keyword)
-   OR im.category = $category
+WITH im, [w IN split($keyword, ' ') WHERE w <> ''] AS words
+WITH im, words,
+     size([w IN words WHERE toLower(im.content) CONTAINS toLower(w)
+                        OR toLower(im.category) CONTAINS toLower(w)]) AS score
+WHERE score > 0
 RETURN im.id AS id, im.content AS content, im.category AS category,
        im.confidence AS confidence, im.updated_at AS updated_at
-ORDER BY im.confidence DESC, im.updated_at DESC
+ORDER BY score DESC, im.confidence DESC, im.updated_at DESC
 LIMIT $limit
 """
 
@@ -43,23 +46,31 @@ LIMIT $limit
 
 READ_EPISODIC_MEMORIES = """
 MATCH (em:EpisodicMemory)
-WHERE toLower(em.content) CONTAINS toLower($keyword)
-   OR toLower(em.event_type) CONTAINS toLower($keyword)
+WITH em, [w IN split($keyword, ' ') WHERE w <> ''] AS words
+WITH em, words,
+     size([w IN words WHERE toLower(em.content) CONTAINS toLower(w)
+                        OR toLower(em.event_type) CONTAINS toLower(w)
+                        OR toLower(coalesce(em.location, '')) CONTAINS toLower(w)]) AS score
+WHERE score > 0
 RETURN em.id AS id, em.content AS content, em.event_type AS event_type,
        em.occurred_at AS occurred_at, em.location AS location,
        em.participants AS participants
-ORDER BY em.occurred_at DESC
+ORDER BY score DESC, em.occurred_at DESC
 LIMIT $limit
 """
 
 READ_EMOTIONAL_MEMORIES = """
 MATCH (em:EmotionalMemory)
-WHERE toLower(em.trigger) CONTAINS toLower($keyword)
-   OR toLower(em.content) CONTAINS toLower($keyword)
+WITH em, [w IN split($keyword, ' ') WHERE w <> ''] AS words
+WITH em, words,
+     size([w IN words WHERE toLower(em.trigger) CONTAINS toLower(w)
+                        OR toLower(em.content) CONTAINS toLower(w)
+                        OR toLower(em.emotion_label) CONTAINS toLower(w)]) AS score
+WHERE score > 0
 RETURN em.id AS id, em.content AS content, em.emotion_label AS emotion_label,
        em.intensity AS intensity, em.valence AS valence,
        em.trigger AS trigger, em.occurred_at AS occurred_at
-ORDER BY em.intensity DESC
+ORDER BY score DESC, em.intensity DESC
 LIMIT $limit
 """
 

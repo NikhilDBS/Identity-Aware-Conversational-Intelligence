@@ -35,11 +35,33 @@ def _guess_memory_type(intent: str) -> str:
 
 
 def _extract_keyword(intent: str) -> str:
-    """Extract a short keyword from a natural-language intent for template matching."""
-    stop_words = {"check", "if", "user", "has", "mentioned", "before", "the", "a", "an",
-                  "about", "related", "to", "any", "information", "on", "their", "find"}
-    words = [w.strip(".,?") for w in intent.lower().split() if w not in stop_words]
-    return " ".join(words[:3]) if words else intent[:30]
+    """Extract a short keyword from a natural-language intent for template matching.
+
+    Interrogatives, auxiliaries, and pronouns are stripped because stored memory
+    content is phrased as statements ("car keys are on the table"), so a keyword
+    like "where car keys" would never match while "car keys" does.
+    """
+    stop_words = {"check", "if", "user", "user's", "users", "has", "have", "mentioned",
+                  "mention", "before", "the", "a", "an",
+                  "about", "related", "to", "any", "information", "on", "their", "find",
+                  "what", "where", "when", "which", "who", "whom", "whose", "how", "why",
+                  "is", "are", "was", "were", "be", "been", "being",
+                  "do", "does", "did", "can", "could", "would", "should",
+                  "my", "me", "i", "you", "your", "yours", "it", "its",
+                  "they", "them", "he", "she", "his", "her", "we", "our",
+                  "and", "or", "of", "for", "in", "at", "by", "with", "from",
+                  "as", "this", "that", "these", "those", "there", "here",
+                  "remind", "recall", "remember", "tell", "said", "say",
+                  "previously", "previous", "shared", "share", "sharing",
+                  "context", "contexts", "specific", "relevant", "prior",
+                  "last", "current", "associated", "regarding", "concerning",
+                  "known", "available", "long-term", "longterm", "named",
+                  "eg", "eg.", "e.g.", "e.g", "etc", "etc."}
+    tokens = [w.strip(".,?()").lower() for w in intent.split()]
+    words = [w for w in tokens if w and w not in stop_words]
+    # Up to 5 words: reads score word-overlap, so extra content words help
+    # recall while noise words simply add no score.
+    return " ".join(words[:5]) if words else intent[:30]
 
 
 # Detect "fetch everything" intents regardless of phrasing

@@ -38,6 +38,18 @@ worth storing as long-term memories. Classify each into exactly one of:
 Rules:
 - A single message can produce zero, one, or MULTIPLE memories across different types.
 - "I bombed my interview today and I'm scared" → 1 episodic (interview) + 1 emotional (scared)
+- The user's NAME is ALWAYS an identity memory (category "trait", confidence 1.0).
+  "Hi my name is Arnold" → 1 identity ("The user's name is Arnold."). Never skip it.
+- Concrete practical facts the user states so you can recall them later are ALWAYS
+  worth storing as episodic memories (event_type "note" or "item_location",
+  occurred_at "now" unless a time is given). "The car keys are on the table" →
+  1 episodic. This overrides the trivial-statement exclusion: greetings, small talk,
+  and questions stay excluded, but stated facts about the user's things, plans,
+  dates, or arrangements are kept.
+- Episodic content must be SELF-CONTAINED: include the key detail in the content
+  string itself, not only in structured fields. Write "The car keys are on the
+  table.", NOT "User noted the location of the car keys." A reader seeing only
+  the content must learn the fact.
 - Do NOT extract trivial statements, greetings, or questions as memories.
 - Do NOT duplicate what is already in retrieved_context (unless updating it with new info).
 - For emotional items: intensity 0.0–1.0, valence ∈ {positive, negative, neutral, mixed}.
