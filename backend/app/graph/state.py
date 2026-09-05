@@ -15,7 +15,10 @@ class PipelineState(TypedDict):
 
     # ── assess_context output ─────────────────────────────────────────────────
     needs_retrieval:    bool
-    retrieval_queries:  list[str]  # natural-language intents for retrieval
+    # Each entry: {"description": <natural-language intent>,
+    #              "memory_types": ["identity"|"episodic"|"emotional", ...]}
+    # (legacy plain-string entries are still accepted and type-guessed)
+    retrieval_queries:  list[dict[str, Any]]
 
     # ── retrieve_memory output ────────────────────────────────────────────────
     retrieved_context:  list[dict[str, Any]]

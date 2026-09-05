@@ -176,15 +176,21 @@ def build_read_params(
     keyword: str,
     memory_type: str,
     limit: int = 10,
+    force_all: bool = False,
 ) -> tuple[str, dict[str, Any]]:
     """
     Return (cypher_query, params) for the given memory_type and keyword.
-    Falls back to ALL_* variant when keyword is empty or a generic "all" query.
+    Falls back to ALL_* variant when force_all is set or the keyword is empty
+    or a generic "all" query.
     Single-user system: no user scoping, memories are global nodes.
     """
     kw = keyword.strip() or ""
     base: dict[str, Any] = {"limit": limit}
-    is_broad = not kw or kw.lower().split()[0] in ("all", "every", "any", "everything")
+    is_broad = (
+        force_all
+        or not kw
+        or kw.lower().split()[0] in ("all", "every", "any", "everything")
+    )
 
     if memory_type == "identity":
         if is_broad:

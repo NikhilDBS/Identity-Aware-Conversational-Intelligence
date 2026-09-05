@@ -42,6 +42,31 @@ def _extract_keyword(intent: str) -> str:
     return " ".join(words[:3]) if words else intent[:30]
 
 
+# Detect "fetch everything" intents regardless of phrasing
+# ("Retrieve all available long-term memories..." vs "All stored information...").
+# Rule: standalone word "all" + a scope word (memory/memories, information,
+# stored, details, data, history), or an explicit everything/history phrase.
+# Detected on the intent, not the keyword, because keyword extraction keeps
+# leading verbs like "retrieve".
+_BROAD_SCOPE_SUBSTRINGS = (
+    "memor", "information", "stored", "detail", "data", "histor",
+)
+_BROAD_EXPLICIT_PHRASES = (
+    "everything", "entire history", "full history",
+)
+
+_ALL_MEMORY_TYPES = ("identity", "episodic", "emotional")
+
+
+def _is_broad_intent(intent: str) -> bool:
+    text = intent.lower()
+    if any(phrase in text for phrase in _BROAD_EXPLICIT_PHRASES):
+        return True
+    has_all = " all " in f" {text} "
+    has_scope = any(scope in text for scope in _BROAD_SCOPE_SUBSTRINGS)
+    return has_all and has_scope
+
+
 async def _run_cypher_read(query: str, params: dict[str, Any]) -> list[dict[str, Any]]:
     """Execute a read Cypher query via the MCP tool and return parsed results."""
     tool = mcp_manager.find_read_tool()
@@ -73,20 +98,39 @@ async def retrieve_memory(state: PipelineState) -> dict[str, Any]:
 
     all_results: list[dict[str, Any]] = []
 
-    for intent in intents:
-        memory_type = _guess_memory_type(intent)
+    for entry in intents:
+        # Accept both the structured {"description", "memory_types"} shape and
+        # legacy plain-string intents.
+        if isinstance(entry, dict):
+            intent = entry.get("description", "")
+            declared_types = [t for t in entry.get("memory_types", [])
+                              if t in _ALL_MEMORY_TYPES]
+        else:
+            intent = entry
+            declared_types = []
+
         keyword = _extract_keyword(intent)
-        query, params = build_read_params(keyword, memory_type)
+        broad = _is_broad_intent(intent)
+        # Broad "tell me everything" intents always fan out across all three
+        # memory types; specific intents use the declared types (falling back
+        # to a keyword guess for legacy string entries).
+        memory_types = (list(_ALL_MEMORY_TYPES) if broad
+                        else (declared_types or [_guess_memory_type(intent)]))
 
-        logger.info("retrieve_memory: intent=%r  type=%s  keyword=%r", intent, memory_type, keyword)
-        rows = await _run_cypher_read(query, params)
+        for memory_type in memory_types:
+            query, params = build_read_params(keyword, memory_type,
+                                              force_all=broad)
 
-        all_results.append({
-            "intent":      intent,
-            "memory_type": memory_type,
-            "keyword":     keyword,
-            "results":     rows,
-        })
+            logger.info("retrieve_memory: intent=%r  type=%s  keyword=%r  broad=%s",
+                        intent, memory_type, keyword, broad)
+            rows = await _run_cypher_read(query, params)
+
+            all_results.append({
+                "intent":      intent,
+                "memory_type": memory_type,
+                "keyword":     keyword,
+                "results":     rows,
+            })
 
     trace_entry = {
         "node":            "retrieve_memory",

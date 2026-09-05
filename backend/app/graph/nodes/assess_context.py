@@ -39,6 +39,14 @@ Think step by step before deciding. Consider:
 - Does a genuinely helpful response depend on knowing the user's identity, past events, or emotional state?
 - Would a reasonable response be the same regardless of who the user is? (→ no retrieval needed)
 
+IMPORTANT:
+- This system keeps LONG-TERM memories across sessions. The recent-turns list may be
+  empty even when long-term memories exist — an empty recent-turns list does NOT mean
+  this is the first ever interaction. Never use it as a reason to skip retrieval.
+- If the user asks what you know/remember about them (e.g. "what do you know about me?",
+  "do you remember...?", "what did I tell you?"), you MUST set needs_retrieval to true
+  with a broad intent covering all memory types.
+
 Return ONLY valid JSON matching this exact schema:
 {
   "needs_retrieval": <bool>,
@@ -60,7 +68,7 @@ def make_user_prompt(message: str, recent_turns: list[dict]) -> str:
         lines = [f"[{t.get('role', '?')}]: {t.get('content', '')}" for t in recent_turns[-6:]]
         history_text = "\n".join(lines)
     else:
-        history_text = "(no prior conversation history)"
+        history_text = "(no recent turns in this session; long-term memories from prior sessions may still exist)"
 
     return f"""Recent conversation:
 {history_text}
@@ -102,6 +110,14 @@ async def assess_context(state: PipelineState) -> dict[str, Any]:
         )
 
     intents_text = [ri.description for ri in assessment.retrieval_intents]
+    intents_structured = [
+        {
+            "description":  ri.description,
+            "memory_types": [mt.value if hasattr(mt, "value") else str(mt)
+                             for mt in ri.memory_types],
+        }
+        for ri in assessment.retrieval_intents
+    ]
 
     trace_entry = {
         "node":            "assess_context",
@@ -113,6 +129,6 @@ async def assess_context(state: PipelineState) -> dict[str, Any]:
 
     return {
         "needs_retrieval":   assessment.needs_retrieval,
-        "retrieval_queries": intents_text,
+        "retrieval_queries": intents_structured,
         "trace":             state.get("trace", []) + [trace_entry],
     }
