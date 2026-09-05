@@ -75,8 +75,7 @@ export default function App() {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showDebug, setShowDebug] = useState(true)
-  const [userId] = useState(() => 'user_' + Math.random().toString(36).slice(2, 9))
-  const [conversationId] = useState(() => crypto.randomUUID())
+  const [conversationId, setConversationId] = useState(() => crypto.randomUUID())
   const [traceHistory, setTraceHistory] = useState([]) // [{turnIndex, trace}]
   const [expandedTurns, setExpandedTurns] = useState({})
   const messagesEndRef = useRef(null)
@@ -108,7 +107,7 @@ export default function App() {
       const res = await fetch(`${API_BASE}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, conversation_id: conversationId, message: content }),
+        body: JSON.stringify({ conversation_id: conversationId, message: content }),
       })
 
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -146,6 +145,14 @@ export default function App() {
 
   const toggleTurn = (i) => setExpandedTurns(prev => ({ ...prev, [i]: !prev[i] }))
 
+  const newConversation = () => {
+    if (isLoading) return
+    setConversationId(crypto.randomUUID())
+    setMessages([])
+    setTraceHistory([])
+    setExpandedTurns({})
+  }
+
   return (
     <div className="app-layout">
       {/* ── Header ──────────────────────────────────────────────────────── */}
@@ -158,10 +165,18 @@ export default function App() {
           </div>
         </div>
         <div className="header-controls">
-          <div className="user-id-badge">
+          <div className="user-id-badge" title={conversationId}>
             <div className="status-dot" />
-            {userId}
+            {conversationId.slice(0, 8)}
           </div>
+          <button
+            id="new-conversation-btn"
+            className="debug-toggle-btn"
+            onClick={newConversation}
+            title="Start a new conversation (memory is kept)"
+          >
+            ➕ New chat
+          </button>
           <button
             id="debug-toggle"
             className={`debug-toggle-btn ${showDebug ? 'active' : ''}`}

@@ -69,7 +69,6 @@ async def _run_cypher_read(query: str, params: dict[str, Any]) -> list[dict[str,
 
 async def retrieve_memory(state: PipelineState) -> dict[str, Any]:
     ts = datetime.utcnow().isoformat()
-    user_id = state["user_id"]
     intents = state.get("retrieval_queries", [])
 
     all_results: list[dict[str, Any]] = []
@@ -77,7 +76,7 @@ async def retrieve_memory(state: PipelineState) -> dict[str, Any]:
     for intent in intents:
         memory_type = _guess_memory_type(intent)
         keyword = _extract_keyword(intent)
-        query, params = build_read_params(user_id, keyword, memory_type)
+        query, params = build_read_params(keyword, memory_type)
 
         logger.info("retrieve_memory: intent=%r  type=%s  keyword=%r", intent, memory_type, keyword)
         rows = await _run_cypher_read(query, params)

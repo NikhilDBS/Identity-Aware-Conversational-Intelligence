@@ -115,7 +115,7 @@ class MemoryExtractionResult(BaseModel):
 # ── FastAPI request / response ─────────────────────────────────────────────────
 
 class ChatRequest(BaseModel):
-    user_id: str = Field(description="Stable identifier for the user")
+    # Single-user system: no user_id — all memories belong to the one user.
     conversation_id: str = Field(
         default_factory=lambda: str(uuid.uuid4()),
         description="UUID for the current conversation session"

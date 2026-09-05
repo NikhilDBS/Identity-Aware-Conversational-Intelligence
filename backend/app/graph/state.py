@@ -8,7 +8,7 @@ from typing import TypedDict, Any
 
 class PipelineState(TypedDict):
     # ── Input ────────────────────────────────────────────────────────────────
-    user_id:         str
+    # Single-user system: no user_id — memories are global nodes.
     conversation_id: str
     user_message:    str
     message_id:      str          # UUID for the Message node being processed

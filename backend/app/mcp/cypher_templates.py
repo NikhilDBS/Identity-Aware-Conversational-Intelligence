@@ -16,7 +16,7 @@ from typing import Any
 # ── READ templates ─────────────────────────────────────────────────────────────
 
 READ_RECENT_CONVERSATIONS = """
-MATCH (u:User {id: $user_id})-[:HAS_CONVERSATION]->(c:Conversation)-[:CONTAINS]->(m:Message)
+MATCH (c:Conversation)-[:CONTAINS]->(m:Message)
 WHERE m.role = 'user'
 RETURN m.content AS content, m.timestamp AS timestamp, c.id AS conversation_id
 ORDER BY m.timestamp DESC
@@ -24,7 +24,7 @@ LIMIT $limit
 """
 
 READ_IDENTITY_MEMORIES = """
-MATCH (u:User {id: $user_id})-[:HAS_IDENTITY]->(im:IdentityMemory)
+MATCH (im:IdentityMemory)
 WHERE toLower(im.content) CONTAINS toLower($keyword)
    OR im.category = $category
 RETURN im.id AS id, im.content AS content, im.category AS category,
@@ -34,7 +34,7 @@ LIMIT $limit
 """
 
 READ_ALL_IDENTITY_MEMORIES = """
-MATCH (u:User {id: $user_id})-[:HAS_IDENTITY]->(im:IdentityMemory)
+MATCH (im:IdentityMemory)
 RETURN im.id AS id, im.content AS content, im.category AS category,
        im.confidence AS confidence, im.updated_at AS updated_at
 ORDER BY im.confidence DESC
@@ -42,7 +42,7 @@ LIMIT $limit
 """
 
 READ_EPISODIC_MEMORIES = """
-MATCH (u:User {id: $user_id})-[:EXPERIENCED]->(em:EpisodicMemory)
+MATCH (em:EpisodicMemory)
 WHERE toLower(em.content) CONTAINS toLower($keyword)
    OR toLower(em.event_type) CONTAINS toLower($keyword)
 RETURN em.id AS id, em.content AS content, em.event_type AS event_type,
@@ -53,7 +53,7 @@ LIMIT $limit
 """
 
 READ_EMOTIONAL_MEMORIES = """
-MATCH (u:User {id: $user_id})-[:FELT]->(em:EmotionalMemory)
+MATCH (em:EmotionalMemory)
 WHERE toLower(em.trigger) CONTAINS toLower($keyword)
    OR toLower(em.content) CONTAINS toLower($keyword)
 RETURN em.id AS id, em.content AS content, em.emotion_label AS emotion_label,
@@ -64,7 +64,7 @@ LIMIT $limit
 """
 
 READ_ALL_EPISODIC_MEMORIES = """
-MATCH (u:User {id: $user_id})-[:EXPERIENCED]->(em:EpisodicMemory)
+MATCH (em:EpisodicMemory)
 RETURN em.id AS id, em.content AS content, em.event_type AS event_type,
        em.occurred_at AS occurred_at, em.location AS location,
        em.participants AS participants
@@ -73,7 +73,7 @@ LIMIT $limit
 """
 
 READ_ALL_EMOTIONAL_MEMORIES = """
-MATCH (u:User {id: $user_id})-[:FELT]->(em:EmotionalMemory)
+MATCH (em:EmotionalMemory)
 RETURN em.id AS id, em.content AS content, em.emotion_label AS emotion_label,
        em.intensity AS intensity, em.valence AS valence,
        em.trigger AS trigger, em.occurred_at AS occurred_at
@@ -81,27 +81,27 @@ ORDER BY em.intensity DESC
 LIMIT $limit
 """
 
-READ_ALL_USER_MEMORIES = """
-MATCH (u:User {id: $user_id})
-OPTIONAL MATCH (u)-[:HAS_IDENTITY]->(im:IdentityMemory)
-OPTIONAL MATCH (u)-[:EXPERIENCED]->(ep:EpisodicMemory)
-OPTIONAL MATCH (u)-[:FELT]->(emo:EmotionalMemory)
-RETURN
-  collect(DISTINCT {type: 'identity',  data: im})  AS identity_memories,
-  collect(DISTINCT {type: 'episodic',  data: ep})  AS episodic_memories,
-  collect(DISTINCT {type: 'emotional', data: emo}) AS emotional_memories
+READ_ALL_MEMORIES = """
+CALL () {
+  MATCH (im:IdentityMemory)
+  RETURN collect(DISTINCT {type: 'identity', data: im}) AS identity_memories
+}
+CALL () {
+  MATCH (ep:EpisodicMemory)
+  RETURN collect(DISTINCT {type: 'episodic', data: ep}) AS episodic_memories
+}
+CALL () {
+  MATCH (emo:EmotionalMemory)
+  RETURN collect(DISTINCT {type: 'emotional', data: emo}) AS emotional_memories
+}
+RETURN identity_memories, episodic_memories, emotional_memories
 """
 
 # ── WRITE templates ────────────────────────────────────────────────────────────
 
-WRITE_USER_AND_CONVERSATION = """
-MERGE (u:User {id: $user_id})
-ON CREATE SET u.name = $user_id, u.created_at = $now
-
+WRITE_CONVERSATION = """
 MERGE (c:Conversation {id: $conversation_id})
 ON CREATE SET c.started_at = $now
-
-MERGE (u)-[:HAS_CONVERSATION]->(c)
 """
 
 WRITE_MESSAGE = """
@@ -130,10 +130,6 @@ ON MATCH SET
   im.updated_at = $now
 
 WITH im
-MATCH (u:User {id: $user_id})
-MERGE (u)-[:HAS_IDENTITY]->(im)
-
-WITH im
 MATCH (m:Message {id: $message_id})
 MERGE (m)-[:PRODUCED]->(im)
 """
@@ -146,10 +142,6 @@ ON CREATE SET
   ep.occurred_at  = $occurred_at,
   ep.location     = $location,
   ep.participants = $participants
-
-WITH ep
-MATCH (u:User {id: $user_id})
-MERGE (u)-[:EXPERIENCED]->(ep)
 
 WITH ep
 MATCH (m:Message {id: $message_id})
@@ -167,10 +159,6 @@ ON CREATE SET
   emo.occurred_at   = $now
 
 WITH emo
-MATCH (u:User {id: $user_id})
-MERGE (u)-[:FELT]->(emo)
-
-WITH emo
 MATCH (m:Message {id: $message_id})
 MERGE (m)-[:PRODUCED]->(emo)
 """
@@ -185,7 +173,6 @@ MERGE (ep)-[:EVOKED]->(emo)
 # ── Helper to build read parameters by intent ─────────────────────────────────
 
 def build_read_params(
-    user_id: str,
     keyword: str,
     memory_type: str,
     limit: int = 10,
@@ -193,10 +180,11 @@ def build_read_params(
     """
     Return (cypher_query, params) for the given memory_type and keyword.
     Falls back to ALL_* variant when keyword is empty or a generic "all" query.
+    Single-user system: no user scoping, memories are global nodes.
     """
     kw = keyword.strip() or ""
-    base: dict[str, Any] = {"user_id": user_id, "limit": limit}
-    is_broad = not kw or kw.lower().split()[0] in ("all", "every", "any")
+    base: dict[str, Any] = {"limit": limit}
+    is_broad = not kw or kw.lower().split()[0] in ("all", "every", "any", "everything")
 
     if memory_type == "identity":
         if is_broad:
@@ -215,7 +203,6 @@ def build_read_params(
 
 
 def build_write_params(
-    user_id: str,
     message_id: str,
     memory_type: str,
     payload: dict[str, Any],
@@ -223,14 +210,14 @@ def build_write_params(
     """
     Return (cypher_query, params) for the given memory_type and payload dict.
     Generates a stable UUID for the memory node based on content hash.
+    Single-user system: memory ids are seeded on type + content only.
     """
     now = datetime.utcnow().isoformat()
-    memory_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{user_id}:{memory_type}:{payload.get('content', '')}"))
+    memory_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{memory_type}:{payload.get('content', '')}"))
 
     if memory_type == "identity":
         return WRITE_IDENTITY_MEMORY, {
             "memory_id":  memory_id,
-            "user_id":    user_id,
             "message_id": message_id,
             "content":    payload["content"],
             "category":   payload.get("category", "trait"),
@@ -240,7 +227,6 @@ def build_write_params(
     elif memory_type == "episodic":
         return WRITE_EPISODIC_MEMORY, {
             "memory_id":    memory_id,
-            "user_id":      user_id,
             "message_id":   message_id,
             "content":      payload["content"],
             "event_type":   payload.get("event_type", "event"),
@@ -251,7 +237,6 @@ def build_write_params(
     elif memory_type == "emotional":
         return WRITE_EMOTIONAL_MEMORY, {
             "memory_id":     memory_id,
-            "user_id":       user_id,
             "message_id":    message_id,
             "content":       payload["content"],
             "emotion_label": payload.get("emotion_label", "unknown"),
