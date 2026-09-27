@@ -1,36 +1,36 @@
 import { createTheme } from '@mui/material/styles'
 
-// ── Claude-inspired light theme ──────────────────────────────────────────────
-// Warm ivory surfaces, warm-gray text, ONE accent (terracotta). Light-only by
-// explicit brief; no theme switcher. Shape lock: cards 12px, buttons 8px,
-// chips pill (MUI Chip default). No glow shadows; shadows tinted warm.
-const TERRACOTTA = '#B14E2E'
-const TERRACOTTA_DARK = '#8F3D24'
+// ── Dark starlight theme ─────────────────────────────────────────────────────
+// Deep-space surfaces, starlight-gold single accent, warm-gray text.
+// Light-only by explicit brief (no switcher). Shape lock: cards 12px,
+// buttons 8px, chips pill. Shadows tinted warm, never pure black.
+const STARLIGHT = '#E3B76B'
+const STARLIGHT_DEEP = '#B98A3E'
 
 const theme = createTheme({
   palette: {
-    mode: 'light',
+    mode: 'dark',
     background: {
-      default: '#FAF9F5', // warm ivory page
-      paper: '#FFFFFF',
+      default: '#05070C', // deep space page
+      paper: '#0B0E15',   // panel surface
     },
     text: {
-      primary: '#1F1E1D', // warm near-black
-      secondary: '#6B6560',
-      disabled: '#A8A29A',
+      primary: '#EDF1F8',
+      secondary: '#9AA3B5',
+      disabled: '#5B6373',
     },
     primary: {
-      main: TERRACOTTA,
-      dark: TERRACOTTA_DARK,
-      light: '#D4693F',
-      contrastText: '#FFFFFF',
+      main: STARLIGHT,
+      dark: STARLIGHT_DEEP,
+      light: '#F2D194',
+      contrastText: '#1A1206',
     },
-    divider: '#E8E2D8',
-    // Memory-type accents (muted to sit inside the warm theme)
+    divider: 'rgba(255, 255, 255, 0.08)',
+    // Memory-type accents (muted to sit inside the night theme)
     memory: {
-      identity: '#6B5CA5',
-      episodic: '#2E7D5B',
-      emotional: TERRACOTTA,
+      identity: '#A78BFA',
+      episodic: '#34D399',
+      emotional: '#F5B453',
     },
   },
   shape: {
@@ -45,7 +45,7 @@ const theme = createTheme({
     MuiCssBaseline: {
       styleOverrides: {
         body: {
-          backgroundColor: '#FAF9F5',
+          backgroundColor: '#05070C',
           // Viewport stability: dynamic viewport units, no page scroll
           minHeight: '100dvh',
           overflow: 'hidden',
@@ -56,7 +56,7 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           // Warm-tinted shadow instead of pure-black drop shadow
-          boxShadow: '0 1px 2px rgba(62, 44, 28, 0.05), 0 4px 16px rgba(62, 44, 28, 0.06)',
+          boxShadow: '0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 28px rgba(0, 0, 0, 0.35)',
         },
       },
     },
@@ -89,4 +89,4 @@ const theme = createTheme({
 })
 
 export default theme
-export { TERRACOTTA, TERRACOTTA_DARK }
+export { STARLIGHT, STARLIGHT_DEEP }

@@ -1,18 +1,31 @@
-/* IACI — slim baseline. Component styling lives in the MUI theme (theme.js)
-   plus sx props. This file keeps only: root backdrop, scrollbars, and
-   transform/opacity-only keyframes (gated behind prefers-reduced-motion). */
+/* IACI — Tailwind v4 (theme + utilities only, NO preflight so MUI's
+   CssBaseline stays in charge) + slim baseline for scrollbars/keyframes. */
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* shadcn-style tokens consumed by the components in src/components/ui.
+   Dark-only app: values are already night-themed. */
+@theme {
+  --color-background: #0B0E15;
+  --color-foreground: #EDF1F8;
+  --color-primary-foreground: #9AA3B5;
+  --color-smooth-1000: #8A93A8;
+  --font-sans: "Outfit", system-ui, -apple-system, sans-serif;
+}
+
+/* The app is always dark: apply `dark:` variants unconditionally. */
+@custom-variant dark (&:where(:root, :root *));
 
 #root {
-  background:
-    radial-gradient(ellipse 70% 40% at 50% 0%, rgba(177, 78, 46, 0.05) 0%, transparent 60%),
-    #FAF9F5;
+  background: transparent; /* GitHubSky night-sky canvas sits behind the app */
   min-height: 100dvh;
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(177, 78, 46, 0.25); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(177, 78, 46, 0.45); }
+::-webkit-scrollbar-thumb { background: rgba(227, 183, 107, 0.25); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(227, 183, 107, 0.45); }
 
 /* Message entry: fade + rise, transform/opacity only */
 .message-enter {
@@ -24,7 +37,7 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Typing dots */
+/* Typing dots (fallback loader) */
 .typing-dots {
   display: inline-flex;
   align-items: center;
@@ -36,7 +49,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #A8A29A;
+  background: #5B6373;
   animation: typing-bounce 1.2s infinite;
 }
 
