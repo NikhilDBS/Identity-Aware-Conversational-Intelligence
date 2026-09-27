@@ -10,6 +10,11 @@ export default defineConfig({
         target: 'http://localhost:8001',
         changeOrigin: true,
       },
+      // Backend liveness probe for the header status dot
+      '/health': {
+        target: 'http://localhost:8001',
+        changeOrigin: true,
+      },
     },
   },
 })

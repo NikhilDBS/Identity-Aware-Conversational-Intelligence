@@ -1,25 +1,54 @@
 import React, { useState, useRef, useEffect } from 'react'
+import { alpha } from '@mui/material/styles'
+import {
+  AppBar, Toolbar, Typography, Button, Chip, Paper, Stack, Box,
+  Avatar, TextField, IconButton, Accordion, AccordionSummary,
+  AccordionDetails, Tooltip,
+} from '@mui/material'
+import {
+  SmartToy as BotIcon,
+  Person as UserIcon,
+  Send as SendIcon,
+  Add as NewChatIcon,
+  Science as TraceIcon,
+  Search as EmptyTraceIcon,
+  ChevronRight as ExpandIcon,
+  Event as EpisodicIcon,
+  Mood as EmotionalIcon,
+  Psychology as BrandIcon,
+} from '@mui/icons-material'
+import theme from './theme.js'
 
 const API_BASE = '/api'
 
 const EXAMPLE_PROMPTS = [
-  "I just bombed my job interview and I'm scared I'll never get hired 😔",
+  "I just bombed my job interview and I'm scared I'll never get hired",
   "My name is Arjun and I'm a backend engineer who loves hiking",
-  "I traveled to Goa last weekend — it was incredible",
-  "I feel really proud of myself for finishing my side project today!",
-  "My sister Meera got engaged! I'm over the moon for her",
+  "I traveled to Goa last weekend, it was incredible",
+  "I feel really proud of myself for finishing my side project today",
+  "My sister Meera got engaged, I'm over the moon for her",
 ]
+
+const MEMORY_META = {
+  identity:  { color: theme.palette.memory.identity,  icon: <UserIcon fontSize="inherit" />,     label: 'identity' },
+  episodic:  { color: theme.palette.memory.episodic,  icon: <EpisodicIcon fontSize="inherit" />,  label: 'episodic' },
+  emotional: { color: theme.palette.memory.emotional, icon: <EmotionalIcon fontSize="inherit" />, label: 'emotional' },
+}
 
 function TypingIndicator() {
   return (
-    <div className="message-row">
-      <div className="message-avatar assistant">🧠</div>
-      <div className="typing-indicator">
-        <div className="typing-dot" />
-        <div className="typing-dot" />
-        <div className="typing-dot" />
-      </div>
-    </div>
+    <Stack direction="row" spacing={1.5} alignItems="flex-start" className="message-enter">
+      <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main' }}>
+        <BotIcon fontSize="small" />
+      </Avatar>
+      <Paper variant="outlined" sx={{ px: 2, py: 1.75, borderBottomLeftRadius: 4, width: 'fit-content' }}>
+        <span className="typing-dots">
+          <span className="typing-dot" />
+          <span className="typing-dot" />
+          <span className="typing-dot" />
+        </span>
+      </Paper>
+    </Stack>
   )
 }
 
@@ -29,76 +58,276 @@ function MemoryBadges({ trace }) {
   if (!extractNode || !extractNode.data?.memories_found) return null
 
   const { breakdown = {} } = extractNode.data
-  const badges = []
-  if (breakdown.identity)  badges.push({ type: 'identity',  label: `${breakdown.identity} identity`,  icon: '👤' })
-  if (breakdown.episodic)  badges.push({ type: 'episodic',  label: `${breakdown.episodic} episodic`,  icon: '📅' })
-  if (breakdown.emotional) badges.push({ type: 'emotional', label: `${breakdown.emotional} emotional`, icon: '💭' })
-
-  if (badges.length === 0) return null
   return (
-    <div className="memory-badges">
-      {badges.map(b => (
-        <span key={b.type} className={`memory-badge ${b.type}`}>
-          {b.icon} {b.label}
-        </span>
-      ))}
-    </div>
+    <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+      {Object.entries(MEMORY_META).map(([type, meta]) =>
+        breakdown[type] ? (
+          <Chip
+            key={type}
+            size="small"
+            icon={meta.icon}
+            label={`${breakdown[type]} ${meta.label}`}
+            sx={{
+              height: 22,
+              fontSize: 11,
+              color: meta.color,
+              bgcolor: alpha(meta.color, 0.1),
+              border: `1px solid ${alpha(meta.color, 0.25)}`,
+            }}
+          />
+        ) : null
+      )}
+    </Stack>
   )
 }
 
 function MessageBubble({ msg }) {
   const isUser = msg.role === 'user'
   return (
-    <div className={`message-row ${isUser ? 'user' : ''}`}>
-      <div className={`message-avatar ${isUser ? 'user' : 'assistant'}`}>
-        {isUser ? '👤' : '🧠'}
-      </div>
-      <div>
-        <div className={`message-bubble ${isUser ? 'user' : 'assistant'}`}>
+    <Stack
+      direction={isUser ? 'row-reverse' : 'row'}
+      spacing={1.5}
+      alignItems="flex-start"
+      className="message-enter"
+    >
+      <Avatar
+        sx={{
+          width: 32, height: 32, flexShrink: 0, mt: 0.25,
+          ...(isUser
+            ? { bgcolor: 'background.paper', color: 'text.secondary', border: 1, borderColor: 'divider' }
+            : { bgcolor: 'primary.main' }),
+        }}
+      >
+        {isUser ? <UserIcon fontSize="small" /> : <BotIcon fontSize="small" />}
+      </Avatar>
+      {/* minWidth: 0 lets long content wrap instead of forcing overflow (Bug 1) */}
+      <Box sx={{ minWidth: 0, maxWidth: '72%' }}>
+        <Paper
+          variant={isUser ? 'elevation' : 'outlined'}
+          elevation={0}
+          sx={{
+            px: 2, py: 1.5,
+            fontSize: 14, lineHeight: 1.6,
+            overflowWrap: 'break-word', wordBreak: 'break-word',
+            ...(isUser
+              ? { bgcolor: '#EDE5D3', borderBottomRightRadius: 4 }
+              : { borderBottomLeftRadius: 4 }),
+          }}
+        >
           {msg.content}
-        </div>
+        </Paper>
         {!isUser && <MemoryBadges trace={msg.trace} />}
-        <div className="message-meta">
+        <Typography variant="caption" color="text.disabled" sx={{ mt: 0.75, fontSize: 10 }}>
           {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          {!isUser && msg.trace && (
-            <span>· {msg.trace.length} pipeline steps</span>
-          )}
-        </div>
-      </div>
-    </div>
+          {!isUser && msg.trace ? ` · ${msg.trace.length} steps` : ''}
+        </Typography>
+      </Box>
+    </Stack>
   )
 }
 
 export { MessageBubble, TypingIndicator, EXAMPLE_PROMPTS }
+
+function NodePill({ text, color }) {
+  return (
+    <Chip
+      size="small"
+      label={text}
+      sx={{ height: 18, fontSize: 9, fontWeight: 600, color, bgcolor: alpha(color, 0.12) }}
+    />
+  )
+}
+
+function NodeCard({ name, pills = [], reasoning, children }) {
+  return (
+    <Paper
+      variant="outlined"
+      sx={{ p: 1.25, bgcolor: 'background.default', borderRadius: 1.5, flexShrink: 0 }}
+    >
+      <Stack direction="row" alignItems="center" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 0.5 }}>
+        <Typography
+          variant="caption"
+          sx={{ fontFamily: 'monoFamily', fontWeight: 600, fontSize: 10, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.4 }}
+        >
+          {name.replace(/_/g, ' ')}
+        </Typography>
+        {pills.map((p, i) => <NodePill key={i} text={p.text} color={p.color} />)}
+      </Stack>
+      {children}
+      {reasoning && (
+        <Typography variant="caption" color="text.disabled" fontStyle="italic" sx={{ mt: 0.5, display: 'block', lineHeight: 1.5, overflowWrap: 'anywhere' }}>
+          {reasoning}
+        </Typography>
+      )}
+    </Paper>
+  )
+}
+
+// Inner scroll box for long step content (Bug 2: step details must scroll)
+function StepScroll({ children }) {
+  return (
+    <Box sx={{ maxHeight: 220, overflowY: 'auto', overscrollBehavior: 'contain', mt: 0.75, pr: 0.5 }}>
+      {children}
+    </Box>
+  )
+}
+
+function TraceTurn({ index, turn, open, onToggle }) {
+  const assessNode = turn.trace?.find(t => t.node === 'assess_context')
+  const extractNode = turn.trace?.find(t => t.node === 'extract_and_classify')
+  const writeNode = turn.trace?.find(t => t.node === 'write_memory')
+  const retrieveNode = turn.trace?.find(t => t.node === 'retrieve_memory')
+
+  const memoriesCount = extractNode?.data?.memories_found ?? 0
+  const didRetrieve = assessNode?.data?.needs_retrieval
+  const okGreen = theme.palette.memory.episodic
+  const neutral = theme.palette.text.disabled
+
+  return (
+    <Accordion
+      expanded={!!open}
+      onChange={onToggle}
+      disableGutters
+      elevation={0}
+      sx={{ flexShrink: 0, border: 1, borderColor: 'divider', borderRadius: '12px !important', '&:before': { display: 'none' } }}
+    >
+      <AccordionSummary expandIcon={<ExpandIcon fontSize="small" />} sx={{ px: 1.5, minHeight: 44 }}>
+        <Stack direction="row" alignItems="center" spacing={0.75} flexWrap="wrap" useFlexGap>
+          <Typography variant="caption" sx={{ fontFamily: 'monoFamily', fontWeight: 600, fontSize: 11, color: 'text.secondary' }}>
+            Turn #{index + 1}
+          </Typography>
+          {didRetrieve && <NodePill text="retrieved" color={okGreen} />}
+          {memoriesCount > 0 && <NodePill text={`+${memoriesCount} stored`} color={theme.palette.primary.main} />}
+        </Stack>
+      </AccordionSummary>
+      <AccordionDetails sx={{ pt: 0, px: 1, pb: 1 }}>
+        <Stack spacing={0.5}>
+          <Typography variant="caption" color="text.disabled" fontStyle="italic" sx={{ px: 0.5, overflowWrap: 'anywhere' }}>
+            "{turn.userMsg?.slice(0, 80)}{turn.userMsg?.length > 80 ? '…' : ''}"
+          </Typography>
+
+          {assessNode && (
+            <NodeCard
+              name="assess context"
+              pills={[assessNode.data.needs_retrieval
+                ? { text: 'retrieve', color: okGreen }
+                : { text: 'skip retrieve', color: neutral }]}
+              reasoning={assessNode.data.reasoning}
+            >
+              {assessNode.data.intents?.length > 0 && (
+                <StepScroll>
+                  <Stack spacing={0.25}>
+                    {assessNode.data.intents.map((intent, j) => (
+                      <Typography key={j} variant="caption" color="text.disabled" sx={{ fontSize: 10, borderLeft: 2, borderColor: 'primary.light', pl: 0.75, ml: 0.25, overflowWrap: 'anywhere' }}>
+                        {intent}
+                      </Typography>
+                    ))}
+                  </Stack>
+                </StepScroll>
+              )}
+            </NodeCard>
+          )}
+
+          {retrieveNode && (
+            <NodeCard
+              name="retrieve memory"
+              pills={(retrieveNode.data.results_summary ?? []).map(r => ({ text: `${r.rows_found} rows`, color: okGreen }))}
+            >
+              <StepScroll>
+                <Stack spacing={0.25}>
+                  {(retrieveNode.data.results_summary ?? []).map((r, j) => (
+                    <Typography key={j} variant="caption" color="text.disabled" sx={{ fontSize: 10, borderLeft: 2, borderColor: 'primary.light', pl: 0.75, ml: 0.25, overflowWrap: 'anywhere' }}>
+                      {r.intent} → {r.rows_found} result{r.rows_found !== 1 ? 's' : ''}
+                    </Typography>
+                  ))}
+                </Stack>
+              </StepScroll>
+            </NodeCard>
+          )}
+
+          {extractNode && (
+            <NodeCard
+              name="extract and classify"
+              pills={[{ text: `${memoriesCount} memories`, color: theme.palette.primary.main }]}
+              reasoning={extractNode.data.reasoning}
+            >
+              {extractNode.data.memories?.length > 0 && (
+                <StepScroll>
+                  <Stack spacing={0.5}>
+                    {extractNode.data.memories.map((m, j) => {
+                      const meta = MEMORY_META[m.memory_type]
+                      return (
+                        <Box key={j} sx={{ fontSize: 10, p: 0.75, borderRadius: 1, fontFamily: 'monoFamily', lineHeight: 1.4, overflowWrap: 'anywhere', color: meta?.color, bgcolor: alpha(meta?.color ?? '#999', 0.08) }}>
+                          [{m.memory_type}] {m.content?.slice(0, 70)}{m.content?.length > 70 ? '…' : ''}
+                        </Box>
+                      )
+                    })}
+                  </Stack>
+                </StepScroll>
+              )}
+            </NodeCard>
+          )}
+
+          {writeNode && (
+            <NodeCard
+              name="write memory"
+              pills={[{ text: `${writeNode.data.writes} writes`, color: theme.palette.memory.emotional }]}
+            >
+              {(writeNode.data.write_results?.length ?? 0) > 0 && (
+                <StepScroll>
+                  <Stack spacing={0.5}>
+                    {writeNode.data.write_results.map((w, j) => {
+                      const meta = MEMORY_META[w.memory_type]
+                      return (
+                        <Box key={j} sx={{ fontSize: 10, p: 0.75, borderRadius: 1, fontFamily: 'monoFamily', lineHeight: 1.4, overflowWrap: 'anywhere', color: meta?.color, bgcolor: alpha(meta?.color ?? '#999', 0.08) }}>
+                          ✓ {w.memory_type}: {w.content?.slice(0, 60)}{w.content?.length > 60 ? '…' : ''}
+                        </Box>
+                      )
+                    })}
+                  </Stack>
+                </StepScroll>
+              )}
+            </NodeCard>
+          )}
+        </Stack>
+      </AccordionDetails>
+    </Accordion>
+  )
+}
+
 export default function App() {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showDebug, setShowDebug] = useState(true)
+  const [backendUp, setBackendUp] = useState(null)
   const [conversationId, setConversationId] = useState(() => crypto.randomUUID())
-  const [traceHistory, setTraceHistory] = useState([]) // [{turnIndex, trace}]
+  const [traceHistory, setTraceHistory] = useState([])
   const [expandedTurns, setExpandedTurns] = useState({})
-  const messagesEndRef = useRef(null)
-  const textareaRef = useRef(null)
+  const messagesBoxRef = useRef(null)
 
+  // Real backend health drives the header status dot (semantic state, not decor)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isLoading])
+    let cancelled = false
+    fetch('health')
+      .then(r => { if (!cancelled) setBackendUp(r.ok) })
+      .catch(() => { if (!cancelled) setBackendUp(false) })
+    return () => { cancelled = true }
+  }, [])
 
-  const autoResize = (el) => {
-    el.style.height = 'auto'
-    el.style.height = Math.min(el.scrollHeight, 140) + 'px'
-  }
+  // Bug 1 fix: scroll ONLY the message list, vertically only. The old
+  // scrollIntoView() scrolled every scrollable ancestor on both axes,
+  // which shifted content left whenever anything overflowed horizontally.
+  useEffect(() => {
+    const el = messagesBoxRef.current
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+  }, [messages, isLoading])
 
   const sendMessage = async (text) => {
     const content = (text || input).trim()
     if (!content || isLoading) return
 
     setInput('')
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
-    }
-
     const userMsg = { role: 'user', content, timestamp: new Date().toISOString() }
     setMessages(prev => [...prev, userMsg])
     setIsLoading(true)
@@ -127,7 +356,7 @@ export default function App() {
     } catch (err) {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `⚠️ Error: ${err.message}. Is the backend running?`,
+        content: `Something went wrong: ${err.message}. Is the backend running?`,
         timestamp: new Date().toISOString(),
         trace: [],
       }])
@@ -153,259 +382,174 @@ export default function App() {
     setExpandedTurns({})
   }
 
-  return (
-    <div className="app-layout">
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <header className="app-header">
-        <div className="app-header-brand">
-          <div className="brand-icon">🧠</div>
-          <div>
-            <div className="brand-title">IACI</div>
-            <div className="brand-subtitle">Identity-Aware Conversational Intelligence</div>
-          </div>
-        </div>
-        <div className="header-controls">
-          <div className="user-id-badge" title={conversationId}>
-            <div className="status-dot" />
-            {conversationId.slice(0, 8)}
-          </div>
-          <button
-            id="new-conversation-btn"
-            className="debug-toggle-btn"
-            onClick={newConversation}
-            title="Start a new conversation (memory is kept)"
-          >
-            ➕ New chat
-          </button>
-          <button
-            id="debug-toggle"
-            className={`debug-toggle-btn ${showDebug ? 'active' : ''}`}
-            onClick={() => setShowDebug(v => !v)}
-          >
-            🔬 {showDebug ? 'Hide' : 'Show'} Trace
-          </button>
-        </div>
-      </header>
+  const dotColor = backendUp === null ? 'text.disabled' : backendUp ? theme.palette.memory.episodic : theme.palette.error.main
+  const dotTitle = backendUp === null ? 'Checking backend' : backendUp ? 'Backend connected' : 'Backend unreachable'
 
-      {/* ── Body ────────────────────────────────────────────────────────── */}
-      <div className="app-body">
-        {/* ── Chat ───────────────────────────────────────────────────── */}
-        <div className="chat-panel">
-          <div className="chat-messages">
+  return (
+    <Box sx={{ height: '100dvh', display: 'flex', flexDirection: 'column', maxWidth: 1400, mx: 'auto', px: 2 }}>
+      <AppBar position="static" elevation={0} sx={{ bgcolor: 'transparent', color: 'text.primary', borderBottom: 1, borderColor: 'divider' }}>
+        <Toolbar disableGutters sx={{ py: 1.25, gap: 1.25 }}>
+          <Avatar sx={{ width: 34, height: 34, borderRadius: 1.5, bgcolor: 'primary.main' }}>
+            <BrandIcon fontSize="small" />
+          </Avatar>
+          <Box sx={{ flexGrow: 1 }}>
+            <Typography variant="subtitle1" fontWeight={600} sx={{ letterSpacing: -0.2, lineHeight: 1.2 }}>
+              IACI
+            </Typography>
+            <Typography variant="caption" color="text.disabled" sx={{ fontSize: 11 }}>
+              Identity-Aware Conversational Intelligence
+            </Typography>
+          </Box>
+          <Tooltip title={`${dotTitle}: ${conversationId.slice(0, 8)}`}>
+            <Chip
+              size="small"
+              icon={<Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: dotColor, ml: '4px !important' }} />}
+              label={conversationId.slice(0, 8)}
+              variant="outlined"
+              sx={{ fontFamily: 'monoFamily', fontSize: 12, color: 'text.secondary' }}
+            />
+          </Tooltip>
+          <Button size="small" variant="outlined" color="inherit" startIcon={<NewChatIcon />} onClick={newConversation} sx={{ color: 'text.secondary', borderColor: 'divider' }}>
+            New chat
+          </Button>
+          <Button
+            size="small"
+            variant={showDebug ? 'contained' : 'outlined'}
+            color={showDebug ? 'primary' : 'inherit'}
+            startIcon={<TraceIcon />}
+            onClick={() => setShowDebug(v => !v)}
+            sx={showDebug ? {} : { color: 'text.secondary', borderColor: 'divider' }}
+          >
+            {showDebug ? 'Hide trace' : 'Show trace'}
+          </Button>
+        </Toolbar>
+      </AppBar>
+
+      <Box sx={{ flex: 1, display: 'flex', gap: 2, py: 1.5, minHeight: 0, overflow: 'hidden' }}>
+        <Paper elevation={0} sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', border: 1, borderColor: 'divider' }}>
+          <Box
+            ref={messagesBoxRef}
+            sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', overscrollBehavior: 'contain', p: 2.5 }}
+          >
             {messages.length === 0 ? (
-              <div className="welcome-state">
-                <div className="welcome-icon">🧠</div>
-                <div className="welcome-title">Memory-powered conversation</div>
-                <p className="welcome-desc">
-                  Tell me about yourself — your experiences, feelings, and who you are.
-                  I'll remember it all across our conversations and use it to know you better.
-                </p>
-                <div className="welcome-chips">
+              <Stack alignItems="center" justifyContent="center" spacing={2} textAlign="center" sx={{ minHeight: '100%', p: 4 }}>
+                <Avatar sx={{ width: 64, height: 64, borderRadius: 3, bgcolor: alpha(theme.palette.primary.main, 0.12), color: 'primary.main' }}>
+                  <BrandIcon fontSize="large" />
+                </Avatar>
+                <Typography variant="h6" fontWeight={600}>
+                  Memory-powered conversation
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 380, lineHeight: 1.7 }}>
+                  Tell me about yourself: your experiences, feelings, and who you are.
+                  I remember it all across our conversations and use it to know you better.
+                </Typography>
+                <Stack direction="row" flexWrap="wrap" useFlexGap justifyContent="center" spacing={1} sx={{ mt: 0.5 }}>
                   {EXAMPLE_PROMPTS.map((p, i) => (
-                    <button key={i} className="welcome-chip" onClick={() => sendMessage(p)}>
-                      {p.length > 50 ? p.slice(0, 50) + '…' : p}
-                    </button>
+                    <Chip
+                      key={i}
+                      label={p.length > 50 ? p.slice(0, 50) + '…' : p}
+                      onClick={() => sendMessage(p)}
+                      variant="outlined"
+                      sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main', borderColor: 'primary.main', bgcolor: alpha(theme.palette.primary.main, 0.06) } }}
+                    />
                   ))}
-                </div>
-              </div>
+                </Stack>
+              </Stack>
             ) : (
-              <>
+              <Stack spacing={2}>
                 {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
                 {isLoading && <TypingIndicator />}
-              </>
+              </Stack>
             )}
-            <div ref={messagesEndRef} />
-          </div>
+          </Box>
 
-          {/* ── Input ───────────────────────────────────────────────── */}
-          <div className="chat-input-area">
-            <div className="chat-input-wrapper">
-              <textarea
-                ref={textareaRef}
+          <Box sx={{ p: 1.5, pt: 1.5, pb: 2, borderTop: 1, borderColor: 'divider', flexShrink: 0 }}>
+            <Box
+              sx={{
+                display: 'flex', alignItems: 'flex-end', gap: 1.25, p: 1.25,
+                border: 1, borderColor: 'divider', borderRadius: 2, bgcolor: 'background.paper',
+                transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
+                '&:focus-within': { borderColor: 'primary.main', boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.12)}` },
+              }}
+            >
+              <TextField
                 id="chat-input"
-                className="chat-textarea"
-                placeholder="Tell me something about yourself…"
+                multiline
+                minRows={1}
+                maxRows={5}
+                fullWidth
+                variant="standard"
+                placeholder="Tell me something about yourself..."
                 value={input}
-                onChange={e => { setInput(e.target.value); autoResize(e.target) }}
+                onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                rows={1}
                 disabled={isLoading}
+                InputProps={{ disableUnderline: true, sx: { fontSize: 14, lineHeight: 1.5 } }}
               />
-              <button
+              <IconButton
                 id="send-btn"
-                className="send-btn"
+                color="primary"
                 onClick={() => sendMessage()}
                 disabled={!input.trim() || isLoading}
                 title="Send (Enter)"
+                sx={{ bgcolor: 'primary.main', color: '#fff', width: 34, height: 34, flexShrink: 0, '&:hover': { bgcolor: 'primary.dark' }, '&.Mui-disabled': { opacity: 0.4, color: '#fff' } }}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="22" y1="2" x2="11" y2="13"/>
-                  <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-                </svg>
-              </button>
-            </div>
-            <div className="input-hint">Enter to send · Shift+Enter for newline</div>
-          </div>
-        </div>
+                <SendIcon fontSize="small" />
+              </IconButton>
+            </Box>
+            <Typography variant="caption" color="text.disabled" align="center" display="block" sx={{ mt: 0.75, fontSize: 11 }}>
+              Enter to send · Shift+Enter for newline
+            </Typography>
+          </Box>
+        </Paper>
 
-        {/* ── Debug Panel ────────────────────────────────────────────── */}
         {showDebug && (
-          <aside className="debug-panel">
-            <div className="debug-panel-header">
-              <div className="debug-panel-title">
-                <span className="debug-panel-title-icon">🔬</span>
-                Pipeline Trace
-              </div>
-              <span className="debug-turn-count">{traceHistory.length} turns</span>
-            </div>
+          <Paper
+            elevation={0}
+            sx={{
+              width: 380, flexShrink: 0, minHeight: 0,
+              display: { xs: 'none', lg: 'flex' }, flexDirection: 'column',
+              overflow: 'hidden', border: 1, borderColor: 'divider',
+            }}
+          >
+            <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+              <Stack direction="row" alignItems="center" spacing={0.75}>
+                <TraceIcon fontSize="small" color="action" />
+                <Typography variant="overline" fontWeight={600} color="text.secondary" sx={{ letterSpacing: 0.5 }}>
+                  Pipeline trace
+                </Typography>
+              </Stack>
+              <Typography variant="caption" color="text.disabled" sx={{ fontFamily: 'monoFamily', fontSize: 11 }}>
+                {traceHistory.length} turns
+              </Typography>
+            </Box>
 
-            <div className="debug-panel-scroll">
+            {/* Bug 2 fix: bounded outer scroll (flex + minHeight 0 + overflowY auto) */}
+            <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain', p: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
               {traceHistory.length === 0 ? (
-                <div className="debug-empty">
-                  <span style={{ fontSize: 24 }}>🔍</span>
-                  <div>Send a message to see the pipeline trace here</div>
-                  <div style={{ fontSize: 11, marginTop: 4 }}>Each turn shows retrieval decisions, memory classification, and write operations</div>
-                </div>
+                <Stack alignItems="center" justifyContent="center" spacing={1} textAlign="center" sx={{ flex: 1, p: 4, color: 'text.disabled' }}>
+                  <EmptyTraceIcon />
+                  <Typography variant="body2">Send a message to see the pipeline trace here</Typography>
+                  <Typography variant="caption">Each turn shows retrieval decisions, memory classification, and write operations</Typography>
+                </Stack>
               ) : (
                 [...traceHistory].reverse().map((turn, ri) => {
                   const i = traceHistory.length - 1 - ri
-                  const open = expandedTurns[i]
                   return (
                     <TraceTurn
                       key={i}
                       index={i}
                       turn={turn}
-                      open={open}
+                      open={expandedTurns[i]}
                       onToggle={() => toggleTurn(i)}
                     />
                   )
                 })
               )}
-            </div>
-          </aside>
+            </Box>
+          </Paper>
         )}
-      </div>
-    </div>
-  )
-}
-
-/* ── TraceTurn component ───────────────────────────────────────────────────── */
-function TraceTurn({ index, turn, open, onToggle }) {
-  const assessNode  = turn.trace?.find(t => t.node === 'assess_context')
-  const extractNode = turn.trace?.find(t => t.node === 'extract_and_classify')
-  const writeNode   = turn.trace?.find(t => t.node === 'write_memory')
-  const retrieveNode = turn.trace?.find(t => t.node === 'retrieve_memory')
-
-  const memoriesCount = extractNode?.data?.memories_found ?? 0
-  const didRetrieve = assessNode?.data?.needs_retrieval
-
-  return (
-    <div className="trace-turn">
-      <div className="trace-turn-header" onClick={onToggle}>
-        <span className="trace-turn-label">Turn #{index + 1}</span>
-        <div className="trace-turn-summary">
-          {didRetrieve && <span className="node-pill retrieve-yes">↑ retrieved</span>}
-          {memoriesCount > 0 && <span className="node-pill memories-n">+{memoriesCount} stored</span>}
-          <span className={`trace-chevron ${open ? 'open' : ''}`}>▶</span>
-        </div>
-      </div>
-
-      {open && (
-        <div className="trace-turn-body">
-          {/* User message preview */}
-          <div style={{ fontSize: 11, color: 'var(--text-muted)', padding: '2px 4px', marginBottom: 2, fontStyle: 'italic' }}>
-            "{turn.userMsg?.slice(0, 80)}{turn.userMsg?.length > 80 ? '…' : ''}"
-          </div>
-
-          {/* assess_context */}
-          {assessNode && (
-            <NodeCard
-              name="assess_context"
-              pills={[
-                assessNode.data.needs_retrieval
-                  ? { cls: 'retrieve-yes', text: '✓ retrieve' }
-                  : { cls: 'retrieve-no', text: '✗ skip retrieve' }
-              ]}
-              reasoning={assessNode.data.reasoning}
-            >
-              {assessNode.data.intents?.length > 0 && (
-                <div className="node-retrieval-list">
-                  {assessNode.data.intents.map((intent, j) => (
-                    <div key={j} className="node-retrieval-item">{intent}</div>
-                  ))}
-                </div>
-              )}
-            </NodeCard>
-          )}
-
-          {/* retrieve_memory */}
-          {retrieveNode && (
-            <NodeCard
-              name="retrieve_memory"
-              pills={retrieveNode.data.results_summary?.map(r => ({
-                cls: 'retrieve-yes',
-                text: `${r.rows_found} rows`,
-              })) ?? []}
-            >
-              <div className="node-retrieval-list">
-                {retrieveNode.data.results_summary?.map((r, j) => (
-                  <div key={j} className="node-retrieval-item">
-                    {r.intent} → {r.rows_found} result{r.rows_found !== 1 ? 's' : ''}
-                  </div>
-                ))}
-              </div>
-            </NodeCard>
-          )}
-
-          {/* extract_and_classify */}
-          {extractNode && (
-            <NodeCard
-              name="extract_and_classify"
-              pills={[{ cls: 'memories-n', text: `${memoriesCount} memories` }]}
-              reasoning={extractNode.data.reasoning}
-            >
-              {extractNode.data.memories?.length > 0 && (
-                <div className="node-memory-list">
-                  {extractNode.data.memories.map((m, j) => (
-                    <div key={j} className={`node-memory-item ${m.memory_type}`}>
-                      [{m.memory_type}] {m.content?.slice(0, 70)}{m.content?.length > 70 ? '…' : ''}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </NodeCard>
-          )}
-
-          {/* write_memory */}
-          {writeNode && (
-            <NodeCard
-              name="write_memory"
-              pills={[{ cls: 'wrote-n', text: `${writeNode.data.writes} writes` }]}
-            >
-              {writeNode.data.write_results?.map((w, j) => (
-                <div key={j} className={`node-memory-item ${w.memory_type}`}>
-                  ✓ {w.memory_type}: {w.content?.slice(0, 60)}{w.content?.length > 60 ? '…' : ''}
-                </div>
-              ))}
-            </NodeCard>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function NodeCard({ name, pills = [], reasoning, children }) {
-  return (
-    <div className="node-card">
-      <div className="node-card-header">
-        <span className="node-name">{name}</span>
-        {pills.map((p, i) => (
-          <span key={i} className={`node-pill ${p.cls}`}>{p.text}</span>
-        ))}
-      </div>
-      {children}
-      {reasoning && <div className="node-reasoning">{reasoning}</div>}
-    </div>
+      </Box>
+    </Box>
   )
 }
