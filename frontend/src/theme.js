@@ -1,18 +1,18 @@
 import { createTheme } from '@mui/material/styles'
 
-// ── Dark starlight theme ─────────────────────────────────────────────────────
-// Deep-space surfaces, starlight-gold single accent, warm-gray text.
-// Light-only by explicit brief (no switcher). Shape lock: cards 12px,
-// buttons 8px, chips pill. Shadows tinted warm, never pure black.
-const STARLIGHT = '#E3B76B'
-const STARLIGHT_DEEP = '#B98A3E'
+// ── Buffer/orb theme ─────────────────────────────────────────────────────────
+// Matches the GradientOrb loader: near-black space, nebula-violet single
+// accent, ice-blue / emerald / ember memory tints. Shape lock: cards 12px,
+// buttons 8px, chips pill. Shadows never pure black.
+const NEBULA = '#9D7BFF'
+const NEBULA_DEEP = '#6F5BD7'
 
 const theme = createTheme({
   palette: {
     mode: 'dark',
     background: {
-      default: '#05070C', // deep space page
-      paper: '#0B0E15',   // panel surface
+      default: '#0A0A0A', // orb canvas black
+      paper: '#0D1017',   // panel base (used translucently over the sky)
     },
     text: {
       primary: '#EDF1F8',
@@ -20,17 +20,17 @@ const theme = createTheme({
       disabled: '#5B6373',
     },
     primary: {
-      main: STARLIGHT,
-      dark: STARLIGHT_DEEP,
-      light: '#F2D194',
-      contrastText: '#1A1206',
+      main: NEBULA,
+      dark: NEBULA_DEEP,
+      light: '#C0B6FF',
+      contrastText: '#0B0B12',
     },
     divider: 'rgba(255, 255, 255, 0.08)',
-    // Memory-type accents (muted to sit inside the night theme)
+    // Memory-type accents (orb family: ice blue / emerald / ember orange)
     memory: {
-      identity: '#A78BFA',
+      identity: '#6FC3FF',
       episodic: '#34D399',
-      emotional: '#F5B453',
+      emotional: '#FF8A3D',
     },
   },
   shape: {
@@ -45,7 +45,7 @@ const theme = createTheme({
     MuiCssBaseline: {
       styleOverrides: {
         body: {
-          backgroundColor: '#05070C',
+          backgroundColor: '#0A0A0A',
           // Viewport stability: dynamic viewport units, no page scroll
           minHeight: '100dvh',
           overflow: 'hidden',
@@ -89,4 +89,4 @@ const theme = createTheme({
 })
 
 export default theme
-export { STARLIGHT, STARLIGHT_DEEP }
+export { NEBULA as STARLIGHT, NEBULA_DEEP as STARLIGHT_DEEP }

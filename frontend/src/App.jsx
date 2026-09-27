@@ -117,10 +117,21 @@ function MessageBubble({ msg }) {
             px: 2, py: 1.5,
             fontSize: 14, lineHeight: 1.6,
             overflowWrap: 'break-word', wordBreak: 'break-word',
-            border: 1, borderColor: 'divider',
+            // Frosted translucent glass: the astral backdrop shows through
+            backdropFilter: 'blur(14px)',
+            WebkitBackdropFilter: 'blur(14px)',
+            boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.09)',
             ...(isUser
-              ? { bgcolor: '#1C2536', borderBottomRightRadius: 4 }
-              : { bgcolor: 'rgba(11, 14, 21, 0.78)', borderBottomLeftRadius: 4 }),
+              ? {
+                  bgcolor: 'rgba(157, 123, 255, 0.13)',
+                  border: 1, borderColor: 'rgba(157, 123, 255, 0.28)',
+                  borderBottomRightRadius: 4,
+                }
+              : {
+                  bgcolor: 'rgba(255, 255, 255, 0.055)',
+                  border: 1, borderColor: 'rgba(255, 255, 255, 0.12)',
+                  borderBottomLeftRadius: 4,
+                }),
           }}
         >
           {msg.content}
@@ -348,7 +359,7 @@ export default function App() {
 
         <Box sx={{ flex: 1, display: 'flex', gap: 2, py: 1.5, minHeight: 0, overflow: 'hidden' }}>
           {/* Chat panel: translucent dark glass over the starfield */}
-          <Paper elevation={0} sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', border: 1, borderColor: 'divider', bgcolor: 'rgba(11, 14, 21, 0.82)', backdropFilter: 'blur(14px)' }}>
+          <Paper elevation={0} sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden', border: 1, borderColor: 'divider', bgcolor: 'rgba(10, 10, 12, 0.55)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}>
             <Box
               ref={messagesBoxRef}
               sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', overscrollBehavior: 'contain', p: 2.5 }}
@@ -389,7 +400,7 @@ export default function App() {
             <Box sx={{ p: 1.5, pb: 2, borderTop: 1, borderColor: 'divider', flexShrink: 0 }}>
               <div
                 className="flex w-full flex-col rounded-[20px] px-4 pb-4 pt-5"
-                style={{ background: 'rgba(20, 24, 33, 0.78)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.08)' }}
+                style={{ background: 'rgba(16, 17, 26, 0.55)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.09)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.07)' }}
               >
                 <textarea
                   ref={composerRef}
@@ -430,7 +441,7 @@ export default function App() {
                 width: 380, flexShrink: 0, minHeight: 0,
                 display: { xs: 'none', lg: 'flex' }, flexDirection: 'column',
                 overflow: 'hidden', border: 1, borderColor: 'divider',
-                bgcolor: 'rgba(11, 14, 21, 0.82)', backdropFilter: 'blur(14px)',
+                bgcolor: 'rgba(10, 10, 12, 0.55)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)',
               }}
             >
               <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
