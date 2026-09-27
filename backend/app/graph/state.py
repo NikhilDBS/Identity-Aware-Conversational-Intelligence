@@ -8,14 +8,17 @@ from typing import TypedDict, Any
 
 class PipelineState(TypedDict):
     # ── Input ────────────────────────────────────────────────────────────────
-    user_id:         str
+    # Single-user system: no user_id — memories are global nodes.
     conversation_id: str
     user_message:    str
     message_id:      str          # UUID for the Message node being processed
 
     # ── assess_context output ─────────────────────────────────────────────────
     needs_retrieval:    bool
-    retrieval_queries:  list[str]  # natural-language intents for retrieval
+    # Each entry: {"description": <natural-language intent>,
+    #              "memory_types": ["identity"|"episodic"|"emotional", ...]}
+    # (legacy plain-string entries are still accepted and type-guessed)
+    retrieval_queries:  list[dict[str, Any]]
 
     # ── retrieve_memory output ────────────────────────────────────────────────
     retrieved_context:  list[dict[str, Any]]

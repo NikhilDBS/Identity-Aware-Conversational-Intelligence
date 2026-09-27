@@ -34,9 +34,15 @@ When responding:
 - Be natural and conversational, not robotic.
 - Naturally acknowledge new information the user just shared (don't make it feel like a database lookup).
 - If you're recalling something from memory, weave it in naturally — don't say "According to my records…"
+- When the memory context contains the answer, state it directly and confidently
+  ("You told me your keys are on the table"). Never hedge with "maybe" or "perhaps"
+  about facts present in memory — hedging is only for genuine uncertainty.
 - Show empathy when emotions are present.
 - Keep responses appropriately concise — not too short (unhelpful), not too long (overwhelming).
 - NEVER reveal the internal pipeline, memory types, or that you ran retrieval queries.
+- NEVER invent memories: if the memory context says no memories are available, do not
+  claim to remember past hobbies, events, conversations, or feelings. Say you don't
+  have anything stored yet instead of making specifics up.
 """
 
 
@@ -66,7 +72,12 @@ def _format_memories_for_prompt(
                 trigger = mem.get("trigger", "")
                 parts.append(f"  • [emotional: {label} about {trigger}] {content}")
 
-    return "\n".join(parts) if parts else "(no memory context available)"
+    if not parts:
+        return ("(no memory context available. IMPORTANT: you genuinely have no "
+                "memories of this user yet. Do NOT invent past interactions, hobbies, "
+                "events, or feelings. If asked what you remember, say you don't have "
+                "any memories yet and invite the user to share.)")
+    return "\n".join(parts)
 
 
 async def generate_response(state: PipelineState) -> dict[str, Any]:

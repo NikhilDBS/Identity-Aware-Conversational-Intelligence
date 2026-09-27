@@ -1,9 +1,12 @@
 """
 FastAPI routes — the primary API surface.
 
+Single-user system: all memories belong to the one user, so no user_id
+appears anywhere in the API.
+
 Endpoints:
-  POST /chat              — run the full LangGraph pipeline, return response + trace
-  GET  /memory/{user_id}  — debug dump of all memories for a user
+  POST /chat     — run the full LangGraph pipeline, return response + trace
+  GET  /memory   — debug dump of all stored memories
 """
 from __future__ import annotations
 
@@ -17,7 +20,7 @@ from fastapi import APIRouter, HTTPException
 from app.graph.graph_builder import compiled_graph
 from app.graph.state import PipelineState
 from app.mcp.client import mcp_manager
-from app.mcp.cypher_templates import READ_ALL_USER_MEMORIES
+from app.mcp.cypher_templates import READ_ALL_MEMORIES
 from app.models.schemas import ChatRequest, ChatResponse, TraceEntry
 
 router = APIRouter()
@@ -35,7 +38,6 @@ async def chat(request: ChatRequest) -> ChatResponse:
     message_id = str(uuid.uuid4())
 
     initial_state: PipelineState = {
-        "user_id":           request.user_id,
         "conversation_id":   request.conversation_id,
         "user_message":      request.message,
         "message_id":        message_id,
@@ -50,7 +52,7 @@ async def chat(request: ChatRequest) -> ChatResponse:
     try:
         final_state = await compiled_graph.ainvoke(initial_state)
     except Exception as exc:
-        logger.exception("Pipeline failed for user %s: %s", request.user_id, exc)
+        logger.exception("Pipeline failed for conversation %s: %s", request.conversation_id, exc)
         raise HTTPException(status_code=500, detail=f"Pipeline error: {exc}")
 
     trace_entries = [
@@ -69,10 +71,10 @@ async def chat(request: ChatRequest) -> ChatResponse:
     )
 
 
-@router.get("/memory/{user_id}")
-async def get_user_memory(user_id: str) -> dict[str, Any]:
+@router.get("/memory")
+async def get_memory() -> dict[str, Any]:
     """
-    Debug endpoint: dump all memories stored for a user.
+    Debug endpoint: dump all memories stored in the system.
     Useful for inspecting the graph state during research/development.
     """
     import json
@@ -83,8 +85,8 @@ async def get_user_memory(user_id: str) -> dict[str, Any]:
 
     try:
         result = await tool.ainvoke({
-            "query":  READ_ALL_USER_MEMORIES,
-            "params": {"user_id": user_id},
+            "query":  READ_ALL_MEMORIES,
+            "params": {},
         })
         if isinstance(result, str):
             data = json.loads(result) if result.strip().startswith(("{", "[")) else {"raw": result}
@@ -95,4 +97,4 @@ async def get_user_memory(user_id: str) -> dict[str, Any]:
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
 
-    return {"user_id": user_id, "memories": data}
+    return {"memories": data}

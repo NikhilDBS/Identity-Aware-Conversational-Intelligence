@@ -35,11 +35,58 @@ def _guess_memory_type(intent: str) -> str:
 
 
 def _extract_keyword(intent: str) -> str:
-    """Extract a short keyword from a natural-language intent for template matching."""
-    stop_words = {"check", "if", "user", "has", "mentioned", "before", "the", "a", "an",
-                  "about", "related", "to", "any", "information", "on", "their", "find"}
-    words = [w.strip(".,?") for w in intent.lower().split() if w not in stop_words]
-    return " ".join(words[:3]) if words else intent[:30]
+    """Extract a short keyword from a natural-language intent for template matching.
+
+    Interrogatives, auxiliaries, and pronouns are stripped because stored memory
+    content is phrased as statements ("car keys are on the table"), so a keyword
+    like "where car keys" would never match while "car keys" does.
+    """
+    stop_words = {"check", "if", "user", "user's", "users", "has", "have", "mentioned",
+                  "mention", "before", "the", "a", "an",
+                  "about", "related", "to", "any", "information", "on", "their", "find",
+                  "what", "where", "when", "which", "who", "whom", "whose", "how", "why",
+                  "is", "are", "was", "were", "be", "been", "being",
+                  "do", "does", "did", "can", "could", "would", "should",
+                  "my", "me", "i", "you", "your", "yours", "it", "its",
+                  "they", "them", "he", "she", "his", "her", "we", "our",
+                  "and", "or", "of", "for", "in", "at", "by", "with", "from",
+                  "as", "this", "that", "these", "those", "there", "here",
+                  "remind", "recall", "remember", "tell", "said", "say",
+                  "previously", "previous", "shared", "share", "sharing",
+                  "context", "contexts", "specific", "relevant", "prior",
+                  "last", "current", "associated", "regarding", "concerning",
+                  "known", "available", "long-term", "longterm", "named",
+                  "eg", "eg.", "e.g.", "e.g", "etc", "etc."}
+    tokens = [w.strip(".,?()").lower() for w in intent.split()]
+    words = [w for w in tokens if w and w not in stop_words]
+    # Up to 5 words: reads score word-overlap, so extra content words help
+    # recall while noise words simply add no score.
+    return " ".join(words[:5]) if words else intent[:30]
+
+
+# Detect "fetch everything" intents regardless of phrasing
+# ("Retrieve all available long-term memories..." vs "All stored information...").
+# Rule: standalone word "all" + a scope word (memory/memories, information,
+# stored, details, data, history), or an explicit everything/history phrase.
+# Detected on the intent, not the keyword, because keyword extraction keeps
+# leading verbs like "retrieve".
+_BROAD_SCOPE_SUBSTRINGS = (
+    "memor", "information", "stored", "detail", "data", "histor",
+)
+_BROAD_EXPLICIT_PHRASES = (
+    "everything", "entire history", "full history",
+)
+
+_ALL_MEMORY_TYPES = ("identity", "episodic", "emotional")
+
+
+def _is_broad_intent(intent: str) -> bool:
+    text = intent.lower()
+    if any(phrase in text for phrase in _BROAD_EXPLICIT_PHRASES):
+        return True
+    has_all = " all " in f" {text} "
+    has_scope = any(scope in text for scope in _BROAD_SCOPE_SUBSTRINGS)
+    return has_all and has_scope
 
 
 async def _run_cypher_read(query: str, params: dict[str, Any]) -> list[dict[str, Any]]:
@@ -69,25 +116,43 @@ async def _run_cypher_read(query: str, params: dict[str, Any]) -> list[dict[str,
 
 async def retrieve_memory(state: PipelineState) -> dict[str, Any]:
     ts = datetime.utcnow().isoformat()
-    user_id = state["user_id"]
     intents = state.get("retrieval_queries", [])
 
     all_results: list[dict[str, Any]] = []
 
-    for intent in intents:
-        memory_type = _guess_memory_type(intent)
+    for entry in intents:
+        # Accept both the structured {"description", "memory_types"} shape and
+        # legacy plain-string intents.
+        if isinstance(entry, dict):
+            intent = entry.get("description", "")
+            declared_types = [t for t in entry.get("memory_types", [])
+                              if t in _ALL_MEMORY_TYPES]
+        else:
+            intent = entry
+            declared_types = []
+
         keyword = _extract_keyword(intent)
-        query, params = build_read_params(user_id, keyword, memory_type)
+        broad = _is_broad_intent(intent)
+        # Broad "tell me everything" intents always fan out across all three
+        # memory types; specific intents use the declared types (falling back
+        # to a keyword guess for legacy string entries).
+        memory_types = (list(_ALL_MEMORY_TYPES) if broad
+                        else (declared_types or [_guess_memory_type(intent)]))
 
-        logger.info("retrieve_memory: intent=%r  type=%s  keyword=%r", intent, memory_type, keyword)
-        rows = await _run_cypher_read(query, params)
+        for memory_type in memory_types:
+            query, params = build_read_params(keyword, memory_type,
+                                              force_all=broad)
 
-        all_results.append({
-            "intent":      intent,
-            "memory_type": memory_type,
-            "keyword":     keyword,
-            "results":     rows,
-        })
+            logger.info("retrieve_memory: intent=%r  type=%s  keyword=%r  broad=%s",
+                        intent, memory_type, keyword, broad)
+            rows = await _run_cypher_read(query, params)
+
+            all_results.append({
+                "intent":      intent,
+                "memory_type": memory_type,
+                "keyword":     keyword,
+                "results":     rows,
+            })
 
     trace_entry = {
         "node":            "retrieve_memory",

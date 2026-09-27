@@ -28,7 +28,6 @@ NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "")
 NEO4J_DATABASE = os.getenv("NEO4J_DATABASE", "neo4j")
 
 CONSTRAINTS = [
-    "CREATE CONSTRAINT user_id_unique IF NOT EXISTS FOR (n:User) REQUIRE n.id IS UNIQUE",
     "CREATE CONSTRAINT conversation_id_unique IF NOT EXISTS FOR (n:Conversation) REQUIRE n.id IS UNIQUE",
     "CREATE CONSTRAINT message_id_unique IF NOT EXISTS FOR (n:Message) REQUIRE n.id IS UNIQUE",
     "CREATE CONSTRAINT identity_memory_id_unique IF NOT EXISTS FOR (n:IdentityMemory) REQUIRE n.id IS UNIQUE",

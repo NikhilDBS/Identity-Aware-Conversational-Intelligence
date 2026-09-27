@@ -6,7 +6,7 @@ For each extracted memory:
   2. Execute via the MCP write tool
   3. The template automatically links the new node back to the Message via PRODUCED
 
-Also writes the User, Conversation, and Message nodes if they don't yet exist
+Also writes the Conversation and Message nodes if they don't yet exist
 (idempotent MERGE operations).
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ from typing import Any
 from app.graph.state import PipelineState
 from app.mcp.client import mcp_manager
 from app.mcp.cypher_templates import (
-    WRITE_USER_AND_CONVERSATION,
+    WRITE_CONVERSATION,
     WRITE_MESSAGE,
     build_write_params,
 )
@@ -47,14 +47,12 @@ async def _run_cypher_write(query: str, params: dict[str, Any]) -> dict[str, Any
 
 async def write_memory(state: PipelineState) -> dict[str, Any]:
     ts = datetime.utcnow().isoformat()
-    user_id         = state["user_id"]
     conversation_id = state["conversation_id"]
     message_id      = state["message_id"]
     memories        = state.get("extracted_memories", [])
 
-    # ── 1. Ensure User + Conversation nodes exist ─────────────────────────────
-    await _run_cypher_write(WRITE_USER_AND_CONVERSATION, {
-        "user_id":         user_id,
+    # ── 1. Ensure Conversation node exists ────────────────────────────────────
+    await _run_cypher_write(WRITE_CONVERSATION, {
         "conversation_id": conversation_id,
         "now":             ts,
     })
@@ -76,7 +74,7 @@ async def write_memory(state: PipelineState) -> dict[str, Any]:
     for mem in memories:
         memory_type = mem.get("memory_type")
         try:
-            query, params = build_write_params(user_id, message_id, memory_type, mem)
+            query, params = build_write_params(message_id, memory_type, mem)
             result = await _run_cypher_write(query, params)
 
             memory_id = params["memory_id"]
